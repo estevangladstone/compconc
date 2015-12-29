@@ -1,2 +1,5 @@
-sequencial
-concorrente
+# Exclui todos os arquivos exceto o .gitignore, arquivos em .c e .h
+/*
+!/*.c
+!.gitignore
+!/*.h
