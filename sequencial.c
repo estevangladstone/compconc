@@ -4,12 +4,12 @@
 #include "testes.h" // Arquivo externo com implementações de funções para testes
 
 /* Protótipos de funções da aplicação */
-float integra(float valor, float l, float r, float e);
+float integra(float valor, float l, float r);
 
 /* Variáveis globais */
 float erro; // Erro máximo
 
-float integra(float valor, float l, float r, float e){
+float integra(float valor, float l, float r){
 	float m;
 	float f1, f2;
 	float resp; // resultado da integração no intervalo dado
@@ -17,22 +17,22 @@ float integra(float valor, float l, float r, float e){
 
 	m = (r + l)/2; // ponto médio do intervalo
 
-	f1 = funB(l, m);
+	f1 = funA(l, m);
 	printf("oi 1: %f\n", f1);
 
-	f2 = funB(m, r);
+	f2 = funA(m, r);
 	printf("oi 2: %f\n", f2);
 	
 	dif = fabsf((f1 + f2) - valor);
 	printf("dif: %f\n", dif);
 
-	if(dif <= e){
+	if(dif <= erro){
 		resp = valor;
 		printf("LOLOLOLOLOL = %f\n", resp);
 	}
 	else{
 		printf("m-l = %f, r-m = %f\n", m-l, r-m);
-		resp = integra(f1, l, m, e/2) + integra(f2, m, r, e/2);
+		resp = integra(f1, l, m) + integra(f2, m, r);
 	}
 
 	return resp;
@@ -66,10 +66,10 @@ int main(int argc, char *argv[]) {
 	// 	exit(EXIT_FAILURE);
 	// }
 
-	valor = funB(l, r); // O valor passado é a base do retângulo
+	valor = funA(l, r); // O valor passado é a base do retângulo
 	printf("oi: %f\n", valor);
 
-	resp = integra(valor, l, r, erro);
+	resp = integra(valor, l, r);
 
 	printf("%f\n", resp);
 
