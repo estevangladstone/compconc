@@ -7,8 +7,8 @@
 float integra(float l, float r);
  
  /* Variáveis globais */
-float   erro = 0.01;    // Erro máximo
-float (*fun)(float);            // Ponteiro da funcao que queremos usar, se eh funA, funB ...
+float erro = 0.01;    // Erro máximo
+float (*fun)(float);  // Ponteiro da funcao que queremos usar, se eh funA, funB ...
  
 float integra(float l, float r){
 	float m;
