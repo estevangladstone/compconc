@@ -1,5 +1,6 @@
 # Exclui todos os arquivos exceto o .gitignore, arquivos em .c e .h
 /*
+!/*.sh
 !/*.c
 !.gitignore
 !/*.h
