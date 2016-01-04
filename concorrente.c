@@ -94,8 +94,11 @@ void integra(node *ptr){
 
 void *thread(){
 	pthread_mutex_lock(&mutex);
-	while(threads_ociosas < total_threads && fila != NULL){ //sdfsfdsf sdfsd gsd gsdgsdgds errado
+	while(threads_ociosas != total_threads && fila != NULL){ //sdfsfdsf sdfsd gsd gsdgsdgds errado
 		while(fila == NULL){
+			if(threads_ociosas == total_threads && fila == NULL){
+				pthread_exit(NULL);
+			}
 			pthread_cond_wait(&cond, &mutex);
 		}
 		threads_ociosas--;
@@ -108,6 +111,7 @@ void *thread(){
 		threads_ociosas++;
 	}
 	pthread_mutex_unlock(&mutex); // pro caso do lock ainda estar sendo usado aqui
+	pthread_cond_broadcast(&cond); // Libera todas as threads para finalizar a aplicação
 	pthread_exit(NULL);
 }
 
@@ -176,6 +180,9 @@ int main(int argc, char *argv[]) {
 	/* Inicilaiza o mutex (lock de exclusao mutua) e a variavel de condicao */
 	pthread_mutex_init(&mutex, NULL);
 	pthread_cond_init (&cond, NULL);
+
+	/* Inicializa o número de threads ociosas para uso posterior */
+	threads_ociosas = total_threads;
 
 	/* Aloca os identificadores da thread no sistema e cria as threads */
 	threads = (pthread_t *)malloc(total_threads * sizeof(pthread_t));
