@@ -120,7 +120,7 @@ Resultado principal_seq( int argc, char *argv[] ) {
 #ifndef COMPARADOR_C // Nao queremos outras "mains" se estivermos usando a main do comparador
 int main( int argc, char *argv[]  ){
     Resultado result = principal_seq( argc , argv );
-    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n"  result.valorDaIntegral , result.tempoDaAplicacao );
+    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n" , result.valorDaIntegral , result.tempoDaAplicacao );
     return 0;
 }
 #endif
