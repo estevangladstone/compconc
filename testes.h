@@ -1,3 +1,6 @@
+#ifndef TESTES_H
+#define TESTES_H
+
 /* Cálculo de áreas de funções teste para a aplicação */
 
 /* Calcula a area do retangulo, dependendo da funcao que for passada como parametro. */
@@ -32,5 +35,7 @@ double funD(double x){
 
 /* f(x) = cos(e^(-x)) * (0.005 * x^3 + 1) */
 double funE(double x){
-	return ( cos(exp(-x)) * ( ( 0.005 * pow(x, 3) ) + 1 ) );
+	return ( cos(exp(-x)) * ( ( 0.005 * pow( x , 3 ) ) + 1 ) );
 }
+
+#endif // TESTES_H
