@@ -5,16 +5,30 @@
 #include "testes.h" // Arquivo externo com implementações de funções para testes
 #include "timer.h"
 
-/* Protótipos de funções da aplicação */
-void integra(double l, double m);
-void *thread();
-
 /* Estruturas de dados utilizadas */
-// --FAZER FILA
 typedef struct _tarefa{
 	double l , r;
 	struct _tarefa *prox;
 } tarefa;
+
+//Estrutura de dado para o resultado da aplicacao
+#ifndef RESULTADO_H
+#define RESULTADO_H
+
+typedef struct _Resultado{
+    double valorDaIntegral;
+    double tempoDaAplicacao;
+    //double tempoDaAlocacaoDasThreads;
+} Resultado;
+
+#endif
+
+
+/* Protótipos de funções da aplicação */
+void integra_conc(double l, double m);
+void *thread();
+void insere_tarefa(tarefa* nt);
+
 
 /* Variáveis globais */
 pthread_mutex_t mutex;
@@ -26,7 +40,7 @@ double resp; 		// saída e resultado da integração
 int total_threads, threads_ociosas;
 double (*fun)(double);  // Ponteiro da funcao que queremos usar, se eh funA, funB ...
 
-void integra(double l, double r){
+void integra_conc(double l, double r){
 	tarefa* nova_tarefa;
 	double m;			// ponto médio do intervalo
 	double A1, A2 , A;  	// A1 e A2 sao as areas dos intervalos (l,m) e (m,r) . A eh o retangulao, fun(l,r);
@@ -58,44 +72,27 @@ void integra(double l, double r){
 
 
 		pthread_mutex_lock(&mutex);
-		if(threads_ociosas > 0){
-
-			//INSERIR_TAREFA(m , r);
-
+		if(threads_ociosas >= 0){
 
 			// poe o ponteiro na fila para outras threads pegarem
 			nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
 			nova_tarefa->l = m;
 			nova_tarefa->r = r;
 			nova_tarefa->prox = NULL;
-			// if(nova_tarefa == NULL)printf("what!?\n");
-
-			if(ultima_tarefa!=NULL){
-				// printf("aqui!!!!\n");
-				ultima_tarefa->prox = nova_tarefa;
-				ultima_tarefa = nova_tarefa;
-			}else{ //Caso em que a fila ficou vazia, nao acesse o null
-				prox_tarefa = nova_tarefa;
-				ultima_tarefa = nova_tarefa;
-			}
-
-			// if(prox_tarefa == NULL)printf("eita\n");
+			insere_tarefa(nova_tarefa);
 
 			// printf("inseri , prox tarefa tem l=%lf , r=%lf \n" , prox_tarefa->l , prox_tarefa->r );
-			// printf("aqui3!!\n");
-
 			pthread_cond_signal(&cond);
 			pthread_mutex_unlock(&mutex);
 
-
 		}
-		else{
-			// printf("recorri\n");
-			pthread_mutex_unlock(&mutex);
-			integra(m,r);
-		}
+// 		else{
+// 			// printf("recorri\n");
+// 			pthread_mutex_unlock(&mutex);
+// 			integra_conc(m,r);
+// 		}
 
-		integra(l, m);
+		integra_conc(l, m);
 
  	}
 
@@ -105,9 +102,8 @@ void *thread(){
 	tarefa* old_tarefa;
 	double l, r;
 	pthread_mutex_lock(&mutex);
-	// printf("vou tentar entrar. %d \n" , threads_ociosas );
+	
 	while( prox_tarefa!=NULL || threads_ociosas < total_threads ){
-		// printf("entrei\n");
 
 		//Checa se existem tarefas
 		if(prox_tarefa==NULL){
@@ -133,7 +129,7 @@ void *thread(){
 
 		pthread_mutex_unlock(&mutex);
 		//------------------------------------
-		integra(l, r);
+		integra_conc(l, r);
 		//------------------------------------
 		pthread_mutex_lock(&mutex);
 		threads_ociosas++;
@@ -144,12 +140,13 @@ void *thread(){
 	pthread_exit(NULL);
 }
 
-int main(int argc, char *argv[]) {
+
+Resultado principal_conc(int argc, char *argv[]) {
   	pthread_t *threads;
 	int i;
-	double l, r; // intervalos de integração;
-	char escolha_da_funcao; //Eh pra ser 'a' ou 'b' ou 'c'...
-	double tempo_inicio , tempo_termino ;
+	double l, r;                            //  Intervalos de integração;
+	char escolha_da_funcao;                 //  Eh pra ser 'a' ou 'b' ou 'c'...
+	double tempo_inicio , tempo_termino ;   //  
 
   	/* Valida e recebe os valores de entrada */
 	if(argc < 6) {
@@ -235,8 +232,28 @@ int main(int argc, char *argv[]) {
 
 	GET_TIME(tempo_termino);
 
-	printf("Tempo para criacao e join das threads: %lf\n" , tempo_termino - tempo_inicio );
-	printf("Resultado da Integração = %lf\n", resp);
+    Resultado result;
+    result.valorDaIntegral = resp;
+    result.tempoDaAplicacao = tempo_termino - tempo_inicio;
 
-	pthread_exit(NULL);
+ 	return result;
+
 }
+
+void insere_tarefa(tarefa* nova_tarefa){
+    if(ultima_tarefa!=NULL){
+		ultima_tarefa->prox = nova_tarefa;
+		ultima_tarefa = nova_tarefa;
+	}else{ //Caso em que a fila ficou vazia, nao acesse o null
+		prox_tarefa = nova_tarefa;
+		ultima_tarefa = nova_tarefa;
+	}
+}
+
+#ifndef COMPARADOR_C // Nao queremos outras "mains" se estivermos usando a main do comparador
+int main(int argc, char *argv[]) {
+    Resultado result = principal_conc( argc , argv );
+    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n"  result.valorDaIntegral , result.tempoDaAplicacao );
+    return 0;
+}
+#endif
