@@ -4,6 +4,18 @@
 #include "testes.h" // Arquivo externo com implementações de funções para testes
 #include "timer.h"
 
+//Estrutura de dado para o resultado da aplicacao
+#ifndef RESULTADO_H
+#define RESULTADO_H
+
+typedef struct _Resultado{
+    double valorDaIntegral;
+    double tempoDaAplicacao;
+    //double tempoDaAlocacaoDasThreads;
+} Resultado;
+
+#endif
+
 /* Protótipos de funções da aplicação */
 double integra(double l, double r);
 
@@ -45,10 +57,11 @@ double integra(double l, double r){
  	return resp;
 }
 
-int main(int argc, char *argv[]) {
-	double l, r; // intervalos de integração;
-	char escolha_da_funcao; //Eh pra ser 'a' ou 'b' ou 'c'...
- 	double resp; // saída e resultado da integração
+
+Resultado principal_seq( int argc, char *argv[] ) {
+	double l, r;                // intervalos de integração;
+	char escolha_da_funcao;     //Eh pra ser 'a' ou 'b' ou 'c'...
+ 	double resp;                // saída e resultado da integração
     double tempo_inicio , tempo_termino ;
 
   	/* Valida e recebe os valores de entrada */
@@ -97,7 +110,17 @@ int main(int argc, char *argv[]) {
 
     GET_TIME(tempo_termino);
 
-	printf("Resultado da Integração = %lf\nTempo: %lf\n", resp , tempo_termino - tempo_inicio );
+    Resultado result;
+    result.valorDaIntegral = resp;
+    result.tempoDaAplicacao = tempo_termino - tempo_inicio;
 
- 	return 0;
+ 	return result;
 }
+
+#ifndef COMPARADOR_C // Nao queremos outras "mains" se estivermos usando a main do comparador
+int main( int argc, char *argv[]  ){
+    Resultado result = principal_seq( argc , argv );
+    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n"  result.valorDaIntegral , result.tempoDaAplicacao );
+    return 0;
+}
+#endif
