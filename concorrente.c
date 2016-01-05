@@ -33,7 +33,9 @@ void insere_tarefa(tarefa* nt);
 /* Variáveis globais */
 pthread_mutex_t mutex;
 pthread_cond_t cond;
-tarefa* prox_tarefa;//
+pthread_cond_t begin;
+int threads_iniciadas = 0;
+tarefa* prox_tarefa;
 tarefa* ultima_tarefa;
 double erro; 		// Erro máximo
 double resp; 		// saída e resultado da integração
@@ -67,44 +69,45 @@ void integra_conc(double l, double r){
 		return ;
  	}
  	else{
-
-		// printf("dif > %lf\n" , erro );
-
-
+		
+	    
 		pthread_mutex_lock(&mutex);
-		if(threads_ociosas >= 0){
-
-			// poe o ponteiro na fila para outras threads pegarem
-			nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
-			nova_tarefa->l = m;
-			nova_tarefa->r = r;
-			nova_tarefa->prox = NULL;
-			insere_tarefa(nova_tarefa);
-
-			// printf("inseri , prox tarefa tem l=%lf , r=%lf \n" , prox_tarefa->l , prox_tarefa->r );
-			pthread_cond_signal(&cond);
-			pthread_mutex_unlock(&mutex);
-
+	
+	    if(threads_ociosas >= 0){
+	        // poe o ponteiro na fila para outras threads pegarem
+    		nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
+    		nova_tarefa->l = m;
+    		nova_tarefa->r = r;
+    		nova_tarefa->prox = NULL;
+    		insere_tarefa(nova_tarefa);
+    		if(prox_tarefa==NULL)printf("WHAT!?!?!?!\n");
+    		pthread_cond_signal(&cond);
+    	    pthread_mutex_unlock(&mutex);
+    		
+	    }
+		else{
+    	    pthread_mutex_unlock(&mutex);
+		    integra_conc(m,r);
 		}
-// 		else{
-// 			// printf("recorri\n");
-// 			pthread_mutex_unlock(&mutex);
-// 			integra_conc(m,r);
-// 		}
-
-		integra_conc(l, m);
-
+    	
+	    //Faco a conta da esquerda agora
+	    integra_conc(l,m);
+	    
  	}
 
 }
 
 void *thread(){
-	tarefa* old_tarefa;
-	double l, r;
 	pthread_mutex_lock(&mutex);
+	tarefa* old_tarefa; // Usado na hora de apagar prox tarefa
+	double l, r;	
+	int contas = 0;
+	
+	threads_iniciadas++;
+	
+	
 	
 	while( prox_tarefa!=NULL || threads_ociosas < total_threads ){
-
 		//Checa se existem tarefas
 		if(prox_tarefa==NULL){
 			pthread_cond_wait(&cond, &mutex);
@@ -114,9 +117,10 @@ void *thread(){
 				pthread_exit(NULL);
 			}
 		}
-
 		threads_ociosas--;
+		contas++;
 
+        //Tira uma tarefa do buffer
 		l = prox_tarefa->l;
 		r = prox_tarefa->r;
 		old_tarefa = prox_tarefa;
@@ -134,7 +138,7 @@ void *thread(){
 		pthread_mutex_lock(&mutex);
 		threads_ociosas++;
 	}
-	pthread_mutex_unlock(&mutex); // pro caso do lock ainda estar sendo usado aqui
+	pthread_mutex_unlock(&mutex);
 	pthread_cond_broadcast(&cond); // Libera todas as threads para finalizar a aplicação
 	// printf("vou dar exit aqui, namoral\n");
 	pthread_exit(NULL);
@@ -165,13 +169,6 @@ Resultado principal_conc(int argc, char *argv[]) {
 		printf("O número de threads deve ser de 1 a 8!\n");
 		exit(EXIT_FAILURE);
 	}
-
-	// ROMEUOOO. Comenta as linhas acima e descomenta essas aqui pra rodar no seu pc
-    // l = 0;
-    // r = 2;
-    // escolha_da_funcao = 'c';
-    // erro = 0.01;
-    // total_threads = 3;
 
 	switch(escolha_da_funcao){
         case 'a':
@@ -207,6 +204,7 @@ Resultado principal_conc(int argc, char *argv[]) {
 	/* Inicilaiza o mutex (lock de exclusao mutua) e a variavel de condicao */
 	pthread_mutex_init(&mutex, NULL);
 	pthread_cond_init (&cond, NULL);
+	pthread_cond_init (&begin, NULL);
 
 	/* Inicializa o número de threads ociosas para uso posterior */
 	threads_ociosas = total_threads;
@@ -219,16 +217,17 @@ Resultado principal_conc(int argc, char *argv[]) {
 			exit(EXIT_FAILURE);
 		}
 	}
-
-	/* Espera todas as threads completarem */
+	
+    //Espera as threads completare
 	for(i = 0; i < total_threads; i++) {
 		pthread_join(threads[i], NULL);
 	}
-
+	
 
 	/* Desaloca variáveis de lock e de condição */
 	pthread_mutex_destroy(&mutex);
 	pthread_cond_destroy(&cond);
+	pthread_cond_destroy(&begin);
 
 	GET_TIME(tempo_termino);
 
@@ -253,7 +252,7 @@ void insere_tarefa(tarefa* nova_tarefa){
 #ifndef COMPARADOR_C // Nao queremos outras "mains" se estivermos usando a main do comparador
 int main(int argc, char *argv[]) {
     Resultado result = principal_conc( argc , argv );
-    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n"  result.valorDaIntegral , result.tempoDaAplicacao );
+    printf("Valor da integral: %lf\nTempo da aplicacao: %lf\n" , result.valorDaIntegral , result.tempoDaAplicacao );
     return 0;
 }
 #endif
