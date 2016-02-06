@@ -5,6 +5,8 @@
 #include "testes.h" // Arquivo externo com implementações de funções para testes
 #include "timer.h"
 
+#define LOCAL_BUFFER_SIZE 15
+
 /* Estruturas de dados utilizadas */
 typedef struct _tarefa{
 	double l , r;
@@ -25,7 +27,7 @@ typedef struct _Resultado{
 
 
 /* Protótipos de funções da aplicação */
-void integra_conc(double l, double m);
+void integra_conc(double l, double r, tarefa *lista_tarefas, int idt, int *espaco_buffer);
 void *thread();
 void insere_tarefa(tarefa* nt);
 
@@ -35,18 +37,19 @@ pthread_mutex_t mutex;
 pthread_cond_t cond;
 pthread_cond_t begin;
 int threads_iniciadas = 0;
-tarefa* prox_tarefa;
+tarefa* prox_tarefa_global;
 tarefa* ultima_tarefa;
 double erro; 		// Erro máximo
-double resp; 		// saída e resultado da integração
 int total_threads, threads_ociosas;
 double (*fun)(double);  // Ponteiro da funcao que queremos usar, se eh funA, funB ...
+double *valores_areas; // valores da integral calculados por cada thread
 
-void integra_conc(double l, double r){
+void integra_conc(double l, double r, tarefa *lista_tarefas, int idt, int *espaco_buffer){
 	tarefa* nova_tarefa;
 	double m;			// ponto médio do intervalo
 	double A1, A2 , A;  	// A1 e A2 sao as areas dos intervalos (l,m) e (m,r) . A eh o retangulao, fun(l,r);
 	double dif;          // diferença entre áreas
+	int i;
 
  	m = (r + l)/2; // ponto médio do intervalo
 
@@ -65,76 +68,93 @@ void integra_conc(double l, double r){
 
  	if(dif <= erro){
 		// printf("Somei %lf ao resp!\n", A);
-		resp += A;
+		valores_areas[idt] += A;
 		return ;
  	}
  	else{
-		
-	    
-		pthread_mutex_lock(&mutex);
-	
-	    if(threads_ociosas >= 0){
-	        // poe o ponteiro na fila para outras threads pegarem
-    		nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
-    		nova_tarefa->l = m;
-    		nova_tarefa->r = r;
-    		nova_tarefa->prox = NULL;
-    		insere_tarefa(nova_tarefa);
-    		if(prox_tarefa==NULL)printf("WHAT!?!?!?!\n");
-    		pthread_cond_signal(&cond);
-    	    pthread_mutex_unlock(&mutex);
-    		
-	    }
-		else{
-    	    pthread_mutex_unlock(&mutex);
-		    integra_conc(m,r);
+	    if(*espaco_buffer == 0){
+			for( i = 0 ; i < (LOCAL_BUFFER_SIZE-1)/2 ; i++ )
+			{
+				nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
+	    		nova_tarefa->l = m;
+	    		nova_tarefa->r = r;
+	    		nova_tarefa->prox = NULL;
+				pthread_mutex_lock(&mutex);
+	    		insere_tarefa(nova_tarefa);
+				pthread_mutex_unlock(&mutex);
+				*espaco_buffer--;
+			}
 		}
-    	
+		else{
+		    integra_conc(m, r, lista_tarefas, idt, &(*espaco_buffer));
+		}
 	    //Faco a conta da esquerda agora
-	    integra_conc(l,m);
-	    
+	    integra_conc(l, m, lista_tarefas, idt, &(*espaco_buffer));
  	}
 
 }
 
-void *thread(){
+void *thread(void *arg){
+	tarefa *old_global_tarefa, // Usado na hora de apagar prox tarefa
+		   *lista_tarefas, // lista interna de tarefas a serem feitas
+		   *prox_tarefa, // proxima tarefa com prioridade dentro da lista interna da thread
+		   *nova_tarefa; // tarefa para ser colocada no buffer global
+	double l, r;
+	int i, count = 0; // contadores
+	int	*idt = (void *) arg; // identificador da thread
+	int	espaco_buffer;
+
+	espaco_buffer = LOCAL_BUFFER_SIZE;
+
+	lista_tarefas = (tarefa*)malloc(LOCAL_BUFFER_SIZE * sizeof(tarefa));
+
 	pthread_mutex_lock(&mutex);
-	tarefa* old_tarefa; // Usado na hora de apagar prox tarefa
-	double l, r;	
-	int contas = 0;
-	
-	threads_iniciadas++;
-	
-	
-	
-	while( prox_tarefa!=NULL || threads_ociosas < total_threads ){
+	threads_iniciadas++;	
+	while( prox_tarefa_global!=NULL || threads_ociosas < total_threads ){
 		//Checa se existem tarefas
-		if(prox_tarefa==NULL){
+		while(prox_tarefa_global==NULL){
 			pthread_cond_wait(&cond, &mutex);
-			if(prox_tarefa==NULL){	//SE O COND DEIXOU ELE ANDAR E AINDA ASSIM prox_tarefa
+			if(prox_tarefa_global==NULL){	//SE O COND DEIXOU ELE ANDAR E AINDA ASSIM prox_tarefa_global
 									//EH NULL, eh pra dar exit;
 				pthread_mutex_unlock(&mutex);
 				pthread_exit(NULL);
 			}
 		}
-		threads_ociosas--;
-		contas++;
-
         //Tira uma tarefa do buffer
-		l = prox_tarefa->l;
-		r = prox_tarefa->r;
-		old_tarefa = prox_tarefa;
-		prox_tarefa = prox_tarefa->prox;
-		if(old_tarefa == ultima_tarefa){
+		l = prox_tarefa_global->l;
+		r = prox_tarefa_global->r;
+		old_global_tarefa = prox_tarefa_global;
+		prox_tarefa_global = prox_tarefa_global->prox;
+		if(old_global_tarefa == ultima_tarefa){
 			ultima_tarefa = NULL;
 		}
-		free(old_tarefa);
-		old_tarefa = NULL;
-
+		free(old_global_tarefa);
+		threads_ociosas--;
 		pthread_mutex_unlock(&mutex);
-		//------------------------------------
-		integra_conc(l, r);
-		//------------------------------------
+		old_global_tarefa = NULL;
+		
+		while(prox_tarefa != NULL){
+			//------------------------------------
+			l = prox_tarefa->l;
+			r = prox_tarefa->r;
+			count = (count++) % LOCAL_BUFFER_SIZE;
+			*prox_tarefa = lista_tarefas[count];
+			integra_conc(l, r, lista_tarefas, *idt, &espaco_buffer);
+			//------------------------------------
+			if(espaco_buffer == 0){
+				for( i = 0 ; i < (LOCAL_BUFFER_SIZE-1)/2 ; i++ )
+				{
+					nova_tarefa = (tarefa*)malloc(sizeof(tarefa));
+		    		nova_tarefa->l = lista_tarefas[LOCAL_BUFFER_SIZE - i].l;
+		    		nova_tarefa->r = lista_tarefas[LOCAL_BUFFER_SIZE - i].r;
+		    		nova_tarefa->prox = NULL;
+					pthread_mutex_lock(&mutex);
+		    		insere_tarefa(nova_tarefa);
+					pthread_mutex_unlock(&mutex);
+					espaco_buffer--;
+				}
+			}
+		}
 		pthread_mutex_lock(&mutex);
 		threads_ociosas++;
 	}
@@ -151,6 +171,7 @@ Resultado principal_conc(int argc, char *argv[]) {
 	double l, r;                            //  Intervalos de integração;
 	char escolha_da_funcao;                 //  Eh pra ser 'a' ou 'b' ou 'c'...
 	double tempo_inicio , tempo_termino ;   //  
+	double resp; 		// saída e resultado da integração
 
   	/* Valida e recebe os valores de entrada */
 	if(argc < 6) {
@@ -195,16 +216,19 @@ Resultado principal_conc(int argc, char *argv[]) {
 
 	GET_TIME(tempo_inicio);
 
-	prox_tarefa = (tarefa*)malloc(sizeof(tarefa));
-	prox_tarefa->l = l;
-	prox_tarefa->r = r;
-	prox_tarefa->prox = NULL;
-	ultima_tarefa = prox_tarefa;
+	prox_tarefa_global = (tarefa*)malloc(sizeof(tarefa));
+	prox_tarefa_global->l = l;
+	prox_tarefa_global->r = r;
+	prox_tarefa_global->prox = NULL;
+	ultima_tarefa = prox_tarefa_global;
 
 	/* Inicilaiza o mutex (lock de exclusao mutua) e a variavel de condicao */
 	pthread_mutex_init(&mutex, NULL);
 	pthread_cond_init (&cond, NULL);
 	pthread_cond_init (&begin, NULL);
+	
+	/* Inicializa o vetor para os valores de areas */
+	valores_areas = (double *)malloc(total_threads * sizeof(double));
 
 	/* Inicializa o número de threads ociosas para uso posterior */
 	threads_ociosas = total_threads;
@@ -212,17 +236,20 @@ Resultado principal_conc(int argc, char *argv[]) {
 	/* Aloca os identificadores da thread no sistema e cria as threads */
 	threads = (pthread_t *)malloc(total_threads * sizeof(pthread_t));
 	for(i = 0; i < total_threads; i++) {
-		if(pthread_create(&threads[i], NULL, thread, NULL)) {
+		int *t = (int *)malloc(sizeof(int));
+		if(pthread_create(&threads[i], NULL, thread, (void *)t)) {
 			// printf("ERRO: pthread_create()\n");
 			exit(EXIT_FAILURE);
 		}
 	}
 	
-    //Espera as threads completare
+    // Espera as threads completarem
 	for(i = 0; i < total_threads; i++) {
 		pthread_join(threads[i], NULL);
+		/* Realiza as somas das áreas calculadas */
+		resp += valores_areas[i];
+		printf("valor = %lf", valores_areas[i]);
 	}
-	
 
 	/* Desaloca variáveis de lock e de condição */
 	pthread_mutex_destroy(&mutex);
@@ -244,7 +271,7 @@ void insere_tarefa(tarefa* nova_tarefa){
 		ultima_tarefa->prox = nova_tarefa;
 		ultima_tarefa = nova_tarefa;
 	}else{ //Caso em que a fila ficou vazia, nao acesse o null
-		prox_tarefa = nova_tarefa;
+		prox_tarefa_global = nova_tarefa;
 		ultima_tarefa = nova_tarefa;
 	}
 }
