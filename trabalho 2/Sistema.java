@@ -13,7 +13,7 @@
 
 TODO:
 - Vetor de requisições construido pela main a partir do arquivo
-- Os Elevadores e o Monitor devem escrever em arquivos de Log
+- Os Elevadores, Sistema e o Controlador devem escrever em arquivos de Log
 - Implementar o método getRequestsOnLevel()
 - Terminar a função getNearRequest() do monitor
 - Elevador marcar andar como "seu"
@@ -27,37 +27,37 @@ import java.util.*;
 
 class Elevador extends Thread{
 
-  private Monitor monitor;                        // Monitor do elevador 
-  private ArrayList<Requisicao> requisicoes;      // Vetor de requisições do elevador
-  private int id;                                 // Recurso compartilhado
-  private int capacidade;                         // Capacidade do elevador
-  private int andar_atual;                        // Andar atual do elevador no prédio
+  private Controlador controlador;      // Controlador do elevador 
+  private Requisicao[] requisicoes;     // Vetor de requisições do elevador
+  private int id;                       // Recurso compartilhado
+  private int capacidade;               // Capacidade do elevador
+  private int andar_atual;              // Andar atual do elevador no prédio
 
   // Construtor
-  public Elevador(int tid, int capacidade, Monitor monitor) {
+  public Elevador(int tid, int capacidade, Controlador controlador) {
     this.id = tid;
     this.capacidade = capacidade;
-    this.monitor = monitor;
+    this.controlador = controlador;
   }
 
   public void run() {
 
     int destino;
 
-    while((destino = monitor.getNearestRequest(andar_atual)) != -1){
+    while((destino = controlador.getNearRequest(andar_atual)) != -1){
       
       // Vai até um andar para pegar pessoas
       this.goTo(destino);
 
       // Pega até C pessoas daquele andar
-      requisicoes = monitor.getRequestsOnLevel(andar_atual, capacidade);
+      requisicoes = controlador.getRequestsOnLevel(andar_atual, capacidade);
 
       /* Ordenar o vetor de requisições pode facilitar as coisas (ordenar como?)*/
       // Funcao ordenaRequests() ordenar de acordo com a forma que vai percorrer os andares (ou nao)
 
-      while(requisicoes.size() > 0){
+      while(requisicoes.length > 0){
         // Pega sempre o primeiro elemento, por ser uma "fila"
-        destino = requisicoes.get(0).getDestino(); // pega o destino de uma requisição do vetor
+        destino = requisicoes[0].getDestino(); // pega o destino de uma requisição do vetor
 
         this.goTo(destino); // Vai até o andar da requisição
 
@@ -102,10 +102,7 @@ class Monitor {
   private int numero_andares,           // Número de andares
               numero_elevadores,        // Número de elevadores do prédio
               capacidade_elevador;      // Capacidade dos elevadores
-  
   private boolean[] andar_livre;
-
-  private ArrayRequisicoes<Requisicao> requisicoes;
 
   public boolean readInput(String[] args){
 
@@ -118,7 +115,7 @@ class Monitor {
       //Variable to hold the one line data
       String linha;
       boolean primeira_linha = true;
-      int andar = 0, rid = 0;
+      int andar = 0;
 
       // Lê o arquivo e cria as variáveis correspondentes
       while ((linha = buffer.readLine()) != null){
@@ -137,9 +134,10 @@ class Monitor {
         }
         else{
           for(String pedido : partes){
-            Requisicao nova_requisicao = new Requisicao(rid++, Integer.valueOf(pedido));
-            requisicoes.addToIndex(andar, nova_requisicao);
+            requisicoes.adicionarRequisicao(andar, Integer.valueOf(pedido));
+            System.out.print(Integer.valueOf(pedido)+" ");
           }          
+          System.out.print("\n");
           andar++;
         }
       }
@@ -157,15 +155,15 @@ class Monitor {
   // Retorna o andar com requisições mais perto do elevador
   public synchronized int getNearestRequest(int andar){
     // Caso haja requisições no andar atual do elevador
-    int andar_abaixo, andar_acima;
+    int andar, andar_abaixo, andar_acima;
 
-    if(!requisicoes.get(andar).isEmpty()){
+    if(!requisicoes.isEmpty(andar)){ // Problemas: se o andar já estiver ocupado??
       return andar;
     }
     else{
       andar_acima = andar + 1;
       andar_abaixo = andar - 1;
-      while(andar_acima < numero_andares || andar_abaixo > 0){
+      while(andar_acima < andar_maximo || andar_abaixo > andar_minimo){
         if(requisicoes.innerArraySize(andar_acima) > requisicoes.innerArraySize(andar_abaixo))
           if(andar_livre[andar_acima]){
             andar_livre[andar_acima] = false;
@@ -177,8 +175,8 @@ class Monitor {
             return andar_abaixo;
           }
         
-        if(andar_acima < numero_andares){ andar_acima++; }
-        if(andar_abaixo > 0){ andar_abaixo--; }
+        if(andar_acima < andar_maximo){ andar_acima++; }
+        if(andar_abaixo > andar_minimo){ andar_abaixo--; }
       }
 
       return -1; // Retorna -1 caso não tenha nenhum andar com requisições
@@ -196,7 +194,7 @@ class Monitor {
 
     if(args.length != 1){
       System.out.println("Erro: entrada inválida!\nTente: java <nome do programa> <nome do arquivo de dados>");
-      return;
+      return false;
     }
 
     Monitor monitor = new Monitor();
@@ -205,7 +203,7 @@ class Monitor {
 
     // Reserva espaço para um vetor de threads
     Thread[] elevadores = new Thread[monitor.numero_elevadores];
-    monitor.andar_livre = new boolean[monitor.numero_andares];
+    andar_livre = new boolean[monitor.numero_andares];
 
     // Cria as threads da aplicação
     for (int i = 0; i < elevadores.length; i++) {
@@ -230,6 +228,49 @@ class Monitor {
 
 }
 
+// Classe principal da aplicação
+class Sistema {
+
+  // Função principal da aplicação
+  public static void main (String[] args) {
+
+    if(args.length != 1){
+      System.out.println("Erro: entrada inválida!\nTente: java <nome do programa> <nome do arquivo de dados>");
+      return false;
+    }
+
+    Controlador controlador = new Controlador();
+
+    controlador.readInput(args);
+
+    // Reserva espaço para um vetor de threads
+    Thread[] elevadores = new Thread[controlador.numero_elevadores];
+    andar_livre = new boolean[controlador.numero_andares];
+
+    // Cria as threads da aplicação
+    for (int i = 0; i < elevadores.length; i++) {
+      elevadores[i] = new Elevador(i, controlador.capacidade_elevador, controlador);
+    }
+
+    // Inicia os elevadores
+    for (int i=0; i<elevadores.length; i++) {
+       elevadores[i].start();
+    }
+
+    // Espera pelo termino de todos os elevadores
+    for (int i = 0; i < elevadores.length; i++) {
+      try {
+        elevadores[i].join();
+      }
+      catch (InterruptedException e) {
+        return; // Por enquanto ignoramos a Exception
+      }
+    }
+  }
+
+}
+
+
 // Array de duas dimensões para guardar as requisições
 class ArrayRequisicoes<T> extends ArrayList<ArrayList<T>> {
 
@@ -242,7 +283,7 @@ class ArrayRequisicoes<T> extends ArrayList<ArrayList<T>> {
   }
 
   // Retira e retorna um subarray com até 'capacidade' requisições
-  public ArrayList<T> takeSubArray(int index, int amount){
+  public ArrayList<T> retireSubArray(int index, int amount){
     ArrayList<T> sublist;
 
     if(this.get(index).size() < amount){
