@@ -34,9 +34,10 @@ class Elevador extends Thread{
   private int andar_atual;                        // Andar atual do elevador no prédio
 
   // Construtor
-  public Elevador(int tid, int capacidade, Monitor monitor) {
+  public Elevador(int tid, int capacidade, int andar_inicial, Monitor monitor) {
     this.id = tid;
     this.capacidade = capacidade;
+    this.andar_atual = andar_inicial;
     this.monitor = monitor;
   }
 
@@ -81,31 +82,17 @@ class Elevador extends Thread{
 
 }
 
-// Classe das Requisição feita por um usuário do elevador
-class Requisicao {
-  private int id;
-  private int destino;
-
-  public Requisicao(int id, int destino){
-    this.id = id;
-    this.destino = destino;
-  }
-
-  public int getDestino(){
-    return this.destino;
-  }
-}
-
 // Classe do Monitor dos elevadores
 class Monitor {
 
   private int numero_andares,           // Número de andares
               numero_elevadores,        // Número de elevadores do prédio
               capacidade_elevador;      // Capacidade dos elevadores
+  private int[] andar_elevador;
   
   private boolean[] andar_livre;
 
-  private ArrayRequisicoes<Requisicao> requisicoes;
+  private ArrayRequisicoes<Requisicao> requisicoes = new ArrayRequisicoes<Requisicao>();
 
   public boolean readInput(String[] args){
 
@@ -117,7 +104,8 @@ class Monitor {
 
       //Variable to hold the one line data
       String linha;
-      boolean primeira_linha = true;
+      boolean primeira_linha = true,
+              segunda_linha = true;
       int andar = 0, rid = 0;
 
       // Lê o arquivo e cria as variáveis correspondentes
@@ -132,8 +120,25 @@ class Monitor {
           this.numero_andares = Integer.valueOf(partes[0]);
           this.numero_elevadores = Integer.valueOf(partes[1]);
           this.capacidade_elevador = Integer.valueOf(partes[2]);
+          // System.out.println(numero_andares);
+          // System.out.println(numero_elevadores);
+          // System.out.println(capacidade_elevador);
 
           primeira_linha = false;
+        }
+        else if(segunda_linha){
+          if(partes.length != this.numero_elevadores){  
+            System.out.println("Erro: arquivo de entrada inválido! Número de elevadores não bate com os andares inciais.");
+            return false;
+          }
+
+          andar_elevador = new int[this.numero_elevadores];
+          for(int i = 0; i < this.numero_elevadores; i++){
+            this.andar_elevador[i] = Integer.valueOf(partes[i]);
+            System.out.println("andar elevador "+i+" : "+andar_elevador[i]);
+          }
+
+          segunda_linha = false;
         }
         else{
           for(String pedido : partes){
@@ -141,6 +146,7 @@ class Monitor {
             requisicoes.addToIndex(andar, nova_requisicao);
           }          
           andar++;
+          if(andar > numero_andares){ return false; }
         }
       }
       //Close the buffer reader
@@ -159,7 +165,7 @@ class Monitor {
     // Caso haja requisições no andar atual do elevador
     int andar_abaixo, andar_acima;
 
-    if(!requisicoes.get(andar).isEmpty()){
+    if(!requisicoes.get(andar).isEmpty() && andar_livre[andar]){
       return andar;
     }
     else{
@@ -183,11 +189,11 @@ class Monitor {
 
       return -1; // Retorna -1 caso não tenha nenhum andar com requisições
     }
-
   }
 
   // retornar um vetor com as requests de tamanho até a CAPACIDADE do elevador
   public synchronized ArrayList<Requisicao> getRequestsOnLevel(int andar, int capacidade){
+
     return requisicoes.takeSubArray(andar, capacidade);
   }
 
@@ -201,32 +207,56 @@ class Monitor {
 
     Monitor monitor = new Monitor();
 
-    monitor.readInput(args);
+    System.out.println("Lendo entradas");
+    
+    if(!monitor.readInput(args)){ return; }
+    System.out.println(monitor.requisicoes.takeSubArray(1, 3).get(0).getId());
+    // monitor.printArray();
 
-    // Reserva espaço para um vetor de threads
-    Thread[] elevadores = new Thread[monitor.numero_elevadores];
-    monitor.andar_livre = new boolean[monitor.numero_andares];
+    // System.out.println("Tamanho do Array: "+monitor.requisicoes.size());
 
-    // Cria as threads da aplicação
-    for (int i = 0; i < elevadores.length; i++) {
-      elevadores[i] = new Elevador(i, monitor.capacidade_elevador, monitor);
-    }
+    // // Reserva espaço para um vetor de threads
+    // Thread[] elevadores = new Thread[monitor.numero_elevadores];
+    // monitor.andar_livre = new boolean[monitor.numero_andares];
 
-    // Inicia os elevadores
-    for (int i=0; i<elevadores.length; i++) {
-       elevadores[i].start();
-    }
+    // System.out.println("Criando Threads");
+    // // Cria as threads da aplicação
+    // for (int i = 0; i < elevadores.length; i++) {
+    //   elevadores[i] = new Elevador(i, monitor.capacidade_elevador, monitor.andar_elevador[i], monitor);
+    // }
 
-    // Espera pelo termino de todos os elevadores
-    for (int i = 0; i < elevadores.length; i++) {
-      try {
-        elevadores[i].join();
-      }
-      catch (InterruptedException e) {
-        return; // Por enquanto ignoramos a Exception
-      }
-    }
+    // System.out.println("Iniciando elevadores");
+    // // Inicia os elevadores
+    // for (int i=0; i<elevadores.length; i++) {
+    //    elevadores[i].start();
+    // }
+
+    // System.out.println("Join nas Threads");
+    // // Espera pelo termino de todos os elevadores
+    // for (int i = 0; i < elevadores.length; i++) {
+    //   try {
+    //     elevadores[i].join();
+    //   }
+    //   catch (InterruptedException e) {
+    //     return; // Por enquanto ignoramos a Exception
+    //   }
+    // }
   }
+
+  // private void printArray(){
+  //   System.out.println("Tamanho : "+requisicoes.size());
+  //   for(ArrayList inner : requisicoes){
+  //     System.out.println("Tamanho interno : "+inner.size());
+  //     // System.out.println(inner);
+  //     for(int i=0;i<inner.size();i++){
+  //       Requisicao req = inner.get(i);
+  //       System.out.println(req.getDestino());
+        
+  //       // Requisicao req = inner.get(i);
+  //       // System.out.println("R["+req.getId()+"] : "+req.getDestino());
+  //     }
+  //   }
+  // }
 
 }
 
@@ -239,6 +269,10 @@ class ArrayRequisicoes<T> extends ArrayList<ArrayList<T>> {
         this.add(new ArrayList<T>());
     }
     this.get(index).add(item);
+  }
+
+  public T getSub(){
+    return this.get(2).get(0);
   }
 
   // Retira e retorna um subarray com até 'capacidade' requisições
@@ -258,8 +292,28 @@ class ArrayRequisicoes<T> extends ArrayList<ArrayList<T>> {
   }
 
   public int innerArraySize(int index){
+    // System.out.println(index);
     return this.get(index).size();
   }
 
+}
+
+// Classe das Requisição feita por um usuário do elevador
+class Requisicao {
+  private int id;
+  private int destino;
+
+  public Requisicao(int id, int destino){
+    this.id = id;
+    this.destino = destino;
+  }
+
+  public int getDestino(){
+    return this.destino;
+  }
+
+  public int getId(){
+    return this.id;
+  }
 }
 
