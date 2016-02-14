@@ -268,9 +268,9 @@ class Monitor {
       }
     }
     monitor.requisicoes.printit();
-    for(boolean a : monitor.andar_livre){
-      System.out.println(a);
-    }
+    // for(boolean a : monitor.andar_livre){
+    //   System.out.println(a);
+    // }
     System.out.println("Acabou...");
   }
 
