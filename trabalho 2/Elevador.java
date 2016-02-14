@@ -27,11 +27,13 @@ import java.util.*;
 
 class Elevador extends Thread{
 
-  private Monitor monitor;                        // Monitor do elevador 
-  private ArrayList<Requisicao> requisicoes;      // Vetor de requisições do elevador
-  private int id;                                 // Recurso compartilhado
-  private int capacidade;                         // Capacidade do elevador
-  private int andar_atual;                        // Andar atual do elevador no prédio
+  private Monitor monitor;              // Monitor do elevador 
+  private Requisicao[] requisicoes;     // Vetor de requisições do elevador
+  private int id;                       // Recurso compartilhado
+  private int capacidade;               // Capacidade do elevador
+  private int andar_atual;              // Andar atual do elevador no prédio
+  private int andar_destino;            // Onde vai deixar O ULTIMO passageiro
+  private int passageiros;              // Numero de passageiros no momento
 
   // Construtor
   public Elevador(int tid, int capacidade, int andar_inicial, Monitor monitor) {
@@ -54,20 +56,19 @@ class Elevador extends Thread{
 
       // Pega até C pessoas daquele andar
       requisicoes = monitor.getRequestsOnLevel(andar_atual, capacidade);
-      System.out.println("E["+id+"] pegou "+requisicoes.size()+" requisicoes");
+      System.out.println("E["+id+"] pegou "+requisicoes.length+" requisicoes");
 
       /* Ordenar o vetor de requisições pode facilitar as coisas (ordenar como?)*/
       // Funcao ordenaRequests() ordenar de acordo com a forma que vai percorrer os andares (ou nao)
 
-      while(requisicoes.size() > 0){
+      for(int i = 0; i < requisicoes.length; i++){
         // Pega sempre o primeiro elemento, por ser uma "fila"
-        destino = requisicoes.get(0).getDestino(); // pega o destino de uma requisição do vetor
+        destino = requisicoes[i].getDestino(); // pega o destino de uma requisição do vetor
 
         System.out.println("E["+id+"] Indo para "+destino);
         this.goTo(destino); // Vai até o andar da requisição
 
-        System.out.println("E["+id+"] liberou a requisição "+requisicoes.get(0).getId()+" no andar "+requisicoes.get(0).getDestino()+"="+andar_atual);
-        requisicoes.remove(0); // Libera a requisição no andar de destino
+        System.out.println("E["+id+"] liberou a requisição "+requisicoes[i].getId()+" no andar "+requisicoes[i].getDestino()+"="+andar_atual);
       }
       System.out.println("E["+id+"] Terminou uma leva no andar "+andar_atual);
 
@@ -98,14 +99,12 @@ class Monitor {
               numero_elevadores,        // Número de elevadores do prédio
               capacidade_elevador;      // Capacidade dos elevadores
   private int[] andar_elevador;
-  
-  private boolean[] andar_livre;
 
-  private ArrayRequisicoes<Requisicao> requisicoes = new ArrayRequisicoes<Requisicao>();
+  private Andar[] andares;
 
-  public boolean readInput(String[] args){
+  public boolean readInput(String input){
 
-    String nome_arquivo = args[0];
+    String nome_arquivo = input;
 
     try{
       FileReader arquivo_de_entrada = new FileReader(nome_arquivo);
@@ -127,12 +126,13 @@ class Monitor {
             return false;
           }
           this.numero_andares = Integer.valueOf(partes[0]);
+          andares = new Andar[numero_andares];
+
           this.numero_elevadores = Integer.valueOf(partes[1]);
           this.capacidade_elevador = Integer.valueOf(partes[2]);
-          // System.out.println(numero_andares);
-          // System.out.println(numero_elevadores);
-          // System.out.println(capacidade_elevador);
-          this.andar_livre = new boolean[this.numero_andares];
+          System.out.println(numero_andares);
+          System.out.println(numero_elevadores);
+          System.out.println(capacidade_elevador);
 
           primeira_linha = false;
           segunda_linha = true;
@@ -143,10 +143,10 @@ class Monitor {
             return false;
           }
 
-          andar_elevador = new int[this.numero_elevadores];
-          for(int i = 0; i < this.numero_elevadores; i++){
-            this.andar_elevador[i] = Integer.valueOf(partes[i]);
-            // System.out.println("andar elevador "+i+" : "+andar_elevador[i]);
+          andar_elevador = new int[numero_elevadores];
+          for(int i = 0; i < numero_elevadores; i++){
+            andar_elevador[i] = Integer.valueOf(partes[i]);
+            System.out.println("andar elevador "+i+" : "+andar_elevador[i]);
           }
 
           segunda_linha = false;
@@ -156,17 +156,18 @@ class Monitor {
             System.out.println("Erro: arquivo de entrada inválido! Número de requisicoes no andar inválido");
             return false;
           }
-
+          andares[andar] = new Andar();
           for(int i = 1; i <= Integer.valueOf(partes[0]); i++){
             int pedido = Integer.valueOf(partes[i]);
+            // System.out.println("oioi");
             if(pedido < 0 || pedido > numero_andares-1){
               System.out.println("Erro: arquivo de entrada inválido! Requisição com andar inválido");
               return false;    
             }
             Requisicao nova_requisicao = new Requisicao(rid++, Integer.valueOf(partes[i]));
-            requisicoes.addToIndex(andar, nova_requisicao);
+            andares[andar].adicionarRequisicao(nova_requisicao);
           }
-          andar_livre[andar] = true;
+          andares[andar].setStatus(true);
           andar++;
           if(andar > numero_andares){ return false; }
         }
@@ -188,7 +189,7 @@ class Monitor {
     // Caso haja requisições no andar atual do elevador
     int andar_abaixo, andar_acima;
 
-    if(!requisicoes.get(andar).isEmpty() && andar_livre[andar]){
+    if(andares[andar].quantidadeRequisicoes() > 0 && andares[andar].livre()){
       System.out.println("Mesmo andar "+andar);
       return andar;
     }
@@ -200,20 +201,24 @@ class Monitor {
         if(andar_acima < numero_andares-1){ andar_acima++; }
         if(andar_abaixo > 0){ andar_abaixo--; }
 
-        if(requisicoes.innerArraySize(andar_acima) > requisicoes.innerArraySize(andar_abaixo)){
-          if(andar_livre[andar_acima]){
-            andar_livre[andar_acima] = false;
+        if(andares[andar_acima].quantidadeRequisicoes() > andares[andar_abaixo].quantidadeRequisicoes()){
+          // System.out.println("aqui 10");        
+          if(andares[andar_acima].livre()){
+            // System.out.println("aqui 20");
+            andares[andar_acima].setStatus(false);
             return andar_acima;
           }
         }
         else{
-          if(andar_livre[andar_abaixo] && requisicoes.innerArraySize(andar_abaixo) > 0){
-            andar_livre[andar_abaixo] = false;
+          // System.out.println("aqui 1");
+          if(andares[andar_abaixo].livre() && andares[andar_abaixo].quantidadeRequisicoes() > 0){
+            // System.out.println("aqui 2");
+            andares[andar_abaixo].setStatus(false);
             return andar_abaixo;
           }
         }
 
-        System.out.println("Preso");
+        // System.out.println("Preso");
       } while(andar_acima != numero_andares-1 || andar_abaixo != 0);
 
       return -1; // Retorna -1 caso não tenha nenhum andar com requisições
@@ -221,9 +226,9 @@ class Monitor {
   }
 
   // retornar um vetor com as requests de tamanho até a CAPACIDADE do elevador
-  public synchronized ArrayList<Requisicao> getRequestsOnLevel(int andar, int capacidade){
-    andar_livre[andar] = true;
-    return requisicoes.takeSubArray(andar, capacidade);
+  public synchronized Requisicao[] getRequestsOnLevel(int andar, int capacidade){
+    andares[andar].setStatus(true);
+    return andares[andar].retirarRequisicoes(capacidade);
   }
 
   // Função principal da aplicação
@@ -238,8 +243,7 @@ class Monitor {
 
     System.out.println("Lendo entradas");
     
-    if(!monitor.readInput(args)){ return; }
-    // monitor.requisicoes.printit();
+    if(!monitor.readInput(args[0])){ return; }
 
     // Reserva espaço para um vetor de threads
     Thread[] elevadores = new Thread[monitor.numero_elevadores];
@@ -267,75 +271,10 @@ class Monitor {
         return; // Por enquanto ignoramos a Exception
       }
     }
-    monitor.requisicoes.printit();
-    // for(boolean a : monitor.andar_livre){
-    //   System.out.println(a);
-    // }
+    for(int i=0;i<monitor.numero_andares;i++){
+      System.out.println(monitor.andares[i].quantidadeRequisicoes());
+    }
     System.out.println("Acabou...");
   }
 
 }
-
-// Array de duas dimensões para guardar as requisições
-class ArrayRequisicoes<T> extends ArrayList<ArrayList<T>> {
-
-  // Inclui uma requisição no array do indice 'index'
-  public void addToIndex(int index, T item) {
-    while (index >= this.size()) {
-        this.add(new ArrayList<T>());
-    }
-    this.get(index).add(item);
-  }
-
-  // Retira e retorna um subarray com até 'capacidade' requisições
-  public ArrayList<T> takeSubArray(int index, int amount){
-    ArrayList<T> sublist;
-
-    if(this.get(index).size() < amount){
-      sublist = new ArrayList<T>(this.get(index));
-      this.get(index).removeAll(sublist);
-    }
-    else{
-      sublist = new ArrayList<T>(this.get(index).subList(0, amount));
-      this.get(index).removeAll(sublist);
-    }
-
-    return sublist;
-  }
-
-  public int innerArraySize(int index){
-    // System.out.println(index);
-    return this.get(index).size();
-  }
-
-  public void printit(){
-    for(ArrayList<T> inner : this){
-      for(T obj : inner){
-        Requisicao req = (Requisicao)obj;
-        System.out.print(req.getId()+"["+req.getDestino()+"] ");
-      }
-      System.out.println("");
-    }
-  }
-
-}
-
-// Classe das Requisição feita por um usuário do elevador
-class Requisicao {
-  private int id;
-  private int destino;
-
-  public Requisicao(int id, int destino){
-    this.id = id;
-    this.destino = destino;
-  }
-
-  public int getDestino(){
-    return this.destino;
-  }
-
-  public int getId(){
-    return this.id;
-  }
-}
-
