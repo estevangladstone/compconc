@@ -28,5 +28,4 @@ class Requisicao {
     return this.origem;
   }
 
-
 }

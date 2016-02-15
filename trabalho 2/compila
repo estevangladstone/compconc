@@ -1,0 +1,4 @@
+javac Requisicao.java
+javac Andar.java
+javac Elevador.java
+javac Monitor.java
