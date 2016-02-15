@@ -37,6 +37,11 @@ class Monitor {
           }
           this.numero_andares = Integer.valueOf(partes[0]);
           andares = new Andar[numero_andares];
+		  System.out.println(numero_andares);
+		  for(int i = 0 ; i<numero_andares ; i++){
+			andares[i] = new Andar();
+			andares[i].setAndar(i);
+		  }
 
           this.numero_elevadores = Integer.valueOf(partes[1]);
           this.capacidade_elevador = Integer.valueOf(partes[2]);
@@ -55,10 +60,6 @@ class Monitor {
 
           andar_elevador = new int[numero_elevadores];
           for(int i = 0; i < numero_elevadores; i++){
-            if(Integer.valueOf(partes[i]) < 0 || Integer.valueOf(partes[i]) > numero_andares-1){
-              System.out.println("Erro: arquivo de entrada inválido! Pedido de destino fora do intervalo do numero de andares.");
-              return false;
-            }
             andar_elevador[i] = Integer.valueOf(partes[i]);
             System.out.println("andar elevador "+i+" : "+andar_elevador[i]);
           }
@@ -81,7 +82,6 @@ class Monitor {
             Requisicao nova_requisicao = new Requisicao(andar, Integer.valueOf(partes[i]));
             andares[andar].adicionarRequisicao(nova_requisicao);
           }
-          andares[andar].setStatus(true);
           andar++;
           if(andar > numero_andares){ return false; }
         }
@@ -100,49 +100,37 @@ class Monitor {
 
   // Retorna o andar com requisições mais perto do elevador
   public synchronized ArrayList<Requisicao> reserveNearestRequests(int andar, int capacidade){
-    // Caso haja requisições no andar atual do elevador
-    int andar_abaixo, andar_acima;
-    ArrayList<Requisicao> empty_array = new ArrayList<Requisicao>();
-
-    if(andares[andar].quantidadeRequisicoes() > 0 && andares[andar].livre()){
-      System.out.println("Mesmo andar "+andar);
-      return andares[andar].retirarRequisicoes(capacidade);
-    }
-    else{
-      andar_acima = andar;
-      andar_abaixo = andar;
-
-      do{
-        if(andar_acima < numero_andares-1){ andar_acima++; }
-        if(andar_abaixo > 0){ andar_abaixo--; }
-
-        if(andares[andar_acima].quantidadeRequisicoes() > andares[andar_abaixo].quantidadeRequisicoes()){
-          // System.out.println("aqui 10");        
-          if(andares[andar_acima].livre()){
-            // System.out.println("aqui 20");
-            return andares[andar_acima].retirarRequisicoes(capacidade);
-          }
-        }
-        else{
-          // System.out.println("aqui 1");
-          if(andares[andar_abaixo].livre() && andares[andar_abaixo].quantidadeRequisicoes() > 0){
-            // System.out.println("aqui 2");
-            andares[andar_abaixo].setStatus(false);
-            return andares[andar_abaixo].retirarRequisicoes(capacidade);
-          }
-        }
-
-        // System.out.println("Preso");
-      } while(andar_acima != numero_andares-1 || andar_abaixo != 0);
-
-      return empty_array; // Retorna um array vazio caso não tenha nenhum andar com requisições
-    }
-  }
-
-  // retornar um vetor com as requests de tamanho até a CAPACIDADE do elevador
-  public synchronized ArrayList<Requisicao> getRequestsOnLevel(int andar, int capacidade){
-    andares[andar].setStatus(true);
-    return andares[andar].retirarRequisicoes(capacidade);
+    
+    ArrayList<Requisicao> return_array;
+	
+	int dest = andar; //Eh o andar mais proximo com requisicoes;
+	//Procura o andar mais proximo com requisicoes:
+	for( int delta = 0 ; delta< numero_andares ; delta++ ){
+		if( andar - delta > 0 ){
+			if( andares[andar-delta].quantidadeRequisicoes(0) > 0 ) {
+				dest = andar-delta;
+				break;
+			}
+		}
+		if( andar + delta < numero_andares){
+			if( andares[andar+delta].quantidadeRequisicoes(0) > 0 ) {
+				dest = andar+delta;
+				break;
+			}
+		}
+	}
+	
+	//Caso nao tenha encontrado novas requiscoes:
+	if(dest==andar){
+		return_array = andares[dest].retirarRequisicoes(capacidade);
+	}
+	//Caso contrario...
+	else{
+		return_array = andares[dest].retirarRequisicoes(capacidade);
+	}
+	
+	return return_array;
+	
   }
 
   // Função principal da aplicação
@@ -185,10 +173,8 @@ class Monitor {
         return; // Por enquanto ignoramos a Exception
       }
     }
-    for(int i=0;i<monitor.numero_andares;i++){
-      System.out.println(monitor.andares[i].quantidadeRequisicoes());
-    }
-    System.out.println("Acabou...");
+
+    System.out.println("Acabou.");
   }
 
 }

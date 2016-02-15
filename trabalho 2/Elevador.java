@@ -32,64 +32,71 @@ class Elevador extends Thread{
   }
 
   public void run() {
-
+	escritor.println("Comecei a thread");
     searchForRequisitions();
+	if( requisicoes.size() > 0 ){
+	escritor.println("Comecei a thread2");
+		andar_destino = requisicoes.get(0).getDestino();
+	}
     while(andar_destino != -1){
 
-    //Se aproxima do andar destino
-    moveOn();
-    
-    //Caso tenha gente no elevador , checa pra ver se nao precisa deixar alguem descer:
-    if( !vazio && requisicoes.size() > 0 ) checaAndar();
-  
-    
-    //Caso tenha chegado ao destino:
-    if(andar_atual == andar_destino){
-    
-      //Caso tenha chegado vazio, eh pra pegar as requisicoes do andar atual;
-      if(vazio){
-        vazio = false;
-        
-        int novo_destino = andar_atual;  //Qual o andar mais longe para o qual eu vou?
-        escritor.println("Entrando no elevador as requisicoes:");
-        for( Requisicao req : requisicoes ){
-          escritor.println("ID " + req.getId() + ", de destino " + req.getDestino() );
-          if( abs(req.getDestino() - andar_atual) > abs(novo_destino - andar_atual) )
-            novo_destino = req.getDestino();
-        }
-        andar_destino = novo_destino;
-        escritor.println("Novo destino pro elevador:" + andar_destino ); 
-      }
-      
-      //Caso contrario, eh pq acabou de deixar o ultimo passageiro descer.
-      else{
-        escritor.println("Nao ha mais passageiros. Estacionado no andar " + andar_atual + ".");
-        vazio = true;
-        //Sera que ainda tem requisicoes para buscar?
-        searchForRequisitions();
-        if(requisicoes.size() == 0){
-          andar_destino = -1;
-          escritor.println("Nao ha mais requisicoes pendentes. Encerrando essa thread");
-        }else{
-          andar_destino = requisicoes.get(0).getOrigem();
-        }
-      }
-      
+		//Se aproxima do andar destino
+		moveOn();
+		
+		//Caso tenha gente no elevador , checa pra ver se nao precisa deixar alguem descer:
+		if( !vazio && requisicoes.size() > 0 ) checaAndar();
+	  
+		
+		//Caso tenha chegado ao destino:
+		if(andar_atual == andar_destino){
+		
+		  //Caso tenha chegado vazio, eh pra pegar as requisicoes do andar atual;
+		  if(vazio){
+			vazio = false;
+			
+			int novo_destino = andar_atual;  //Qual o andar mais longe para o qual eu vou?
+			escritor.println("Entrando no elevador as requisicoes:");
+			for( Requisicao req : requisicoes ){
+			  escritor.println("ID " + req.getId() + ", de destino " + req.getDestino() );
+			  if( abs(req.getDestino() - andar_atual) > abs(novo_destino - andar_atual) )
+				novo_destino = req.getDestino();
+			}
+			andar_destino = novo_destino;
+			escritor.println("Novo destino pro elevador:" + andar_destino ); 
+		  }
+		  
+		  //Caso contrario, eh pq acabou de deixar o ultimo passageiro descer.
+		  else{
+			escritor.println("Nao ha mais passageiros. Estacionado no andar " + andar_atual + ".");
+			vazio = true;
+			//Sera que ainda tem requisicoes para buscar?
+			searchForRequisitions();
+			if(requisicoes.size() == 0){
+			  andar_destino = -1;
+			  escritor.println("Nao ha mais requisicoes pendentes. Encerrando essa thread");
+			}else{
+			  andar_destino = requisicoes.get(0).getOrigem();
+			}
+		  }
+		  
+		}
+		
     }
-    }
-  escritor.close();
+    escritor.close();
   }
 
   
   //Checa se no andar atual tem gente querendo descer. Se tiver, o faz.
   private void checaAndar(){  
+    ArrayList<Requisicao> remover = new ArrayList<Requisicao>();
     for(Requisicao req : requisicoes){
+      System.out.println(req.getClass());
       if( req.getDestino() == andar_atual ){
-        //Vai com deus.
-        requisicoes.remove(req);
+        remover.add(req);
         escritor.println("Descendo no andar " + andar_atual + " a requisicao de ID " + req.getId() + " .");
       }
     }
+    requisicoes.removeAll(remover);
   }
   
   // Move um andar em direcao ao destino.
@@ -105,7 +112,7 @@ class Elevador extends Thread{
   }
 
   //Procura por novas requisicoes e reserva elas.
-  private void searchForRequisitions(){
+  private synchronized void searchForRequisitions(){
     requisicoes = monitor.reserveNearestRequests(andar_atual, capacidade);
     if(requisicoes.size()>0){
       escritor.println( "Reservada as requisicoes para este elevador. Indo ao andar " + requisicoes.get(0).getOrigem() + " busca-las." );

@@ -9,8 +9,9 @@ class Requisicao {
   public Requisicao(int origem, int destino)
   {
     this.id = open_id++;
-    this.destino = destino;
+	this.destino = destino;
     this.origem = origem;
+    System.out.println("estou no " + this.origem + "e quero ir pro " + this.destino);
   }
 
   public int getDestino()
@@ -27,5 +28,6 @@ class Requisicao {
   {
     return this.origem;
   }
+
 
 }
