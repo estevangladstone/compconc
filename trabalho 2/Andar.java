@@ -17,16 +17,16 @@ class Andar {
   }
 
   // Retira e retorna um subarray com até 'capacidade' requisições
-  public Requisicao[] retirarRequisicoes(int quantidade){
-    Requisicao[] sublista = new Requisicao[1];
+  public ArrayList<Requisicao> retirarRequisicoes(int quantidade){
+    ArrayList<Requisicao> sublista;
 
     if(requisicoes.size() < quantidade){
-      sublista = requisicoes.toArray(sublista);
+      sublista = requisicoes;
       requisicoes.clear();
     }
     else{
-      sublista = (requisicoes.subList(0, quantidade)).toArray(sublista);
-      requisicoes.removeAll(new ArrayList<Requisicao>(requisicoes.subList(0, quantidade)));
+      sublista = new ArrayList<Requisicao>(requisicoes.subList(0, quantidade));
+      requisicoes.removeAll(sublista);
     }
 
     return sublista;

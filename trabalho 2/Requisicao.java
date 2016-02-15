@@ -1,14 +1,15 @@
 
 // Classe das Requisição feita por um usuário do elevador
 class Requisicao {
-  
+  private static open_id = 0;
   private int id;
   private int destino;
 
-  public Requisicao(int id, int destino)
+  public Requisicao(int origem, int destino)
   {
-    this.id = id;
+    this.id = open_id++;
     this.destino = destino;
+    this.origem = origem;
   }
 
   public int getDestino()
@@ -20,5 +21,11 @@ class Requisicao {
   {
     return this.id;
   }
+
+  public int getOrigem()
+  {
+    return this.origem;
+  }
+
 
 }
