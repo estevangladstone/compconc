@@ -55,6 +55,10 @@ class Monitor {
 
           andar_elevador = new int[numero_elevadores];
           for(int i = 0; i < numero_elevadores; i++){
+            if(Integer.valueOf(partes[i]) < 0 || Integer.valueOf(partes[i]) > numero_andares-1){
+              System.out.println("Erro: arquivo de entrada inválido! Pedido de destino fora do intervalo do numero de andares.");
+              return false;
+            }
             andar_elevador[i] = Integer.valueOf(partes[i]);
             System.out.println("andar elevador "+i+" : "+andar_elevador[i]);
           }
