@@ -1,9 +1,10 @@
 
 // Classe das Requisição feita por um usuário do elevador
 class Requisicao {
-  private static open_id = 0;
+  private static int open_id = 0;
   private int id;
   private int destino;
+  private int origem;
 
   public Requisicao(int origem, int destino)
   {

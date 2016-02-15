@@ -26,7 +26,9 @@ class Elevador extends Thread{
     this.passageiros = 0;
     this.vazio = true;
     String nome_do_arquivo = new String("log_elevador" + tid + ".txt");
-    escritor = new PrintWriter( nome_do_arquivo , "UTF-8");
+    try{
+      escritor = new PrintWriter( nome_do_arquivo , "UTF-8");
+    }catch(Exception e){};
   }
 
   public void run() {
@@ -69,7 +71,7 @@ class Elevador extends Thread{
           andar_destino = -1;
           escritor.println("Nao ha mais requisicoes pendentes. Encerrando essa thread");
         }else{
-          andar_destino = requisicoes.get(0).getOrigin();
+          andar_destino = requisicoes.get(0).getOrigem();
         }
       }
       
@@ -106,7 +108,7 @@ class Elevador extends Thread{
   private void searchForRequisitions(){
     requisicoes = monitor.reserveNearestRequests(andar_atual, capacidade);
     if(requisicoes.size()>0){
-      escritor.println( "Reservada as requisicoes para este elevador. Indo ao andar " + requisicoes.get(0).getOrigin() + " busca-las." );
+      escritor.println( "Reservada as requisicoes para este elevador. Indo ao andar " + requisicoes.get(0).getOrigem() + " busca-las." );
     }
   }
   

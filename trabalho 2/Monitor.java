@@ -98,11 +98,11 @@ class Monitor {
   public synchronized ArrayList<Requisicao> reserveNearestRequests(int andar, int capacidade){
     // Caso haja requisições no andar atual do elevador
     int andar_abaixo, andar_acima;
-    int[] empty_array = {};
+    ArrayList<Requisicao> empty_array = new ArrayList<Requisicao>();
 
     if(andares[andar].quantidadeRequisicoes() > 0 && andares[andar].livre()){
       System.out.println("Mesmo andar "+andar);
-      return andar;
+      return andares[andar].retirarRequisicoes(capacidade);
     }
     else{
       andar_acima = andar;
@@ -131,12 +131,12 @@ class Monitor {
         // System.out.println("Preso");
       } while(andar_acima != numero_andares-1 || andar_abaixo != 0);
 
-      return empty_array; // Retorna -1 caso não tenha nenhum andar com requisições
+      return empty_array; // Retorna um array vazio caso não tenha nenhum andar com requisições
     }
   }
 
   // retornar um vetor com as requests de tamanho até a CAPACIDADE do elevador
-  public synchronized Requisicao[] getRequestsOnLevel(int andar, int capacidade){
+  public synchronized ArrayList<Requisicao> getRequestsOnLevel(int andar, int capacidade){
     andares[andar].setStatus(true);
     return andares[andar].retirarRequisicoes(capacidade);
   }
